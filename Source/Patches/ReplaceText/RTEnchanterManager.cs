@@ -67,14 +67,16 @@ namespace Localyssation.Patches.ReplaceText
                             .Aggregate(0, (sum, itemdata) => sum + itemdata._quantity);
 
                         __instance._tradeItemPriceText.text = $"{_foundTradeQuantity}/{_scriptEquipment._statModifierCost._scriptItemQuantity} "
-                            + Localyssation.GetString(KeyUtil.GetForAsset(_scriptEquipment._statModifierCost._scriptItem) + "_NAME");
+                            + Localyssation.GetString(
+                                KeyUtil.GetForAsset(_scriptEquipment._statModifierCost._scriptItem) + "_NAME",
+                                _scriptEquipment._statModifierCost._scriptItem._itemName);
                     }
                 }
                 if (__instance._setItemData._modifierID > 0)
                 {
                     ScriptableStatModifier scriptableStatModifier = GameManager._current.Locate_StatModifier(__instance._setItemData._modifierID);
                     __instance._currentEnchantmentText.text = Localyssation.GetString(I18nKeys.Enchanter.STATUS_CURRENT_ENCHANTMENT)
-                        + Localyssation.GetString(KeyUtil.GetForAsset(scriptableStatModifier));
+                        + Localyssation.GetString(KeyUtil.GetForAsset(scriptableStatModifier), scriptableStatModifier._modifierTag);
                 }
             }
         }
@@ -135,7 +137,9 @@ namespace Localyssation.Patches.ReplaceText
         // 自定义消息生成函数
         public static string GetCustomEnchantmentMessage(ScriptableStatModifier modifier)
         {
-            return Localyssation.Format(I18nKeys.Enchanter.GET_NEW_ENCHANTMENT_FORMAT, KeyUtil.GetForAsset(modifier).Localize());
+            return Localyssation.Format(
+                I18nKeys.Enchanter.GET_NEW_ENCHANTMENT_FORMAT,
+                KeyUtil.GetForAsset(modifier).Localize(modifier._modifierTag));
         }
     }
 

@@ -208,7 +208,7 @@ namespace Localyssation.Patches.ReplaceText
 
                 ScriptablePlayerRace race = GameManager._current.Locate_PlayerRace(__instance._characterFileData._appearanceProfile._setRaceTag);
                 if (race) 
-                    raceName = KeyUtil.GetForAsset(race).Name.Localize();
+                    raceName = KeyUtil.GetForAsset(race).Name.Localize(race._raceName);
 
                 
                 if (!string.IsNullOrEmpty(__instance._characterFileData._statsProfile._classID))
@@ -217,10 +217,11 @@ namespace Localyssation.Patches.ReplaceText
                     ScriptablePlayerBaseClass playerClass = GameManager._current.Locate_PlayerClass(statsProfile._classID);
                     if (playerClass)
                     {
-                        className = KeyUtil.GetForAsset(playerClass).Name.Localize();
+                        className = KeyUtil.GetForAsset(playerClass).Name.Localize(playerClass._className);
                         if (statsProfile._classTier > 0)
                         {
-                            className = KeyUtil.GetForAsset(playerClass._playerClassTiers[statsProfile._classTier - 1]).Name.Localize();
+                            var classTier = playerClass._playerClassTiers[statsProfile._classTier - 1];
+                            className = KeyUtil.GetForAsset(classTier).Name.Localize(classTier._classTierName);
                         }
                     }
                         

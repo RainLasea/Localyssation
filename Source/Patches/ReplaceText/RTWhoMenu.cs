@@ -30,7 +30,7 @@ namespace Localyssation.Patches.ReplaceText
             };
 
             if (_string != null && tooltipKeys.TryGetValue(_string, out var key))
-                _string = key.Localize();
+                _string = key.Localize(_string);
         }
     }
 }

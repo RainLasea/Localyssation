@@ -66,7 +66,8 @@ namespace Localyssation.Patches.ReplaceText
                     ToolTipManager._current.Apply_GenericToolTip(
                         string.Format(
                             Localyssation.GetString("TAB_MENU_CELL_SKILLS_CLASS_TAB_TOOLTIP"),
-                            KeyUtil.GetForAsset(pStats._class._playerClassTiers[pStats._syncClassTier - 1]).Name.Localize()
+                            KeyUtil.GetForAsset(pStats._class._playerClassTiers[pStats._syncClassTier - 1]).Name.Localize(
+                                pStats._class._playerClassTiers[pStats._syncClassTier - 1]._classTierName)
                         )
                     );
                     //pStats._class._playerClassTiers[pStats._syncClassTier - 1]._classTierName + " Skills");
@@ -140,11 +141,15 @@ namespace Localyssation.Patches.ReplaceText
                     // "rank" now is skill type
                     if (skill._skillControlType == SkillControlType.Passive)
                     {
-                        __instance._skillRankText.text = Localyssation.GetString(KeyUtil.GetForAsset(skill._skillControlType));
+                        __instance._skillRankText.text = Localyssation.GetString(
+                            KeyUtil.GetForAsset(skill._skillControlType),
+                            skill._skillControlType.ToString());
                     }
                     else
                     {
-                        __instance._skillRankText.text = Localyssation.GetString(KeyUtil.GetForAsset(skill._skillUtilityType));
+                        __instance._skillRankText.text = Localyssation.GetString(
+                            KeyUtil.GetForAsset(skill._skillUtilityType),
+                            skill._skillUtilityType.ToString());
                     }
 
                 }
@@ -171,7 +176,8 @@ namespace Localyssation.Patches.ReplaceText
             if (!Player._mainPlayer || !__instance._scriptSkill) return;
             var skill = __instance._scriptSkill;
             var key = KeyUtil.GetForAsset(__instance._scriptSkill);
-            __instance._toolTipName.text = Localyssation.GetString($"{key}_NAME", fontSize: (int)__instance._toolTipName.fontSize);
+            __instance._toolTipName.text = Localyssation.GetString(
+                $"{key}_NAME", skill._skillName, (int)__instance._toolTipName.fontSize);
 
 
             if (skill._skillControlType != SkillControlType.Passive)
@@ -180,15 +186,21 @@ namespace Localyssation.Patches.ReplaceText
             }
             else
             {
-                __instance._toolTipSubName.text = Localyssation.GetString(KeyUtil.GetForAsset(SkillControlType.Passive));
+                __instance._toolTipSubName.text = Localyssation.GetString(
+                    KeyUtil.GetForAsset(SkillControlType.Passive),
+                    SkillControlType.Passive.ToString());
             }
 
 
 
             void NonPassiveSkillsTooltip()
             {
-                __instance._toolTipSubName.text = Localyssation.GetString(KeyUtil.GetForAsset(skill._skillUtilityType));
-                __instance._scaleTypeText.text = Localyssation.GetString(KeyUtil.GetForAsset(skill._skillDamageType));
+                __instance._toolTipSubName.text = Localyssation.GetString(
+                    KeyUtil.GetForAsset(skill._skillUtilityType),
+                    skill._skillUtilityType.ToString());
+                __instance._scaleTypeText.text = Localyssation.GetString(
+                    KeyUtil.GetForAsset(skill._skillDamageType),
+                    skill._skillDamageType.ToString());
             }
 
         }
@@ -254,7 +266,9 @@ namespace Localyssation.Patches.ReplaceText
                 if (!(__instance._scriptSkill._skillDescription == string.Empty))
                 {
                     __instance._toolTipDescription.gameObject.SetActive(value: true);
-                    string skillDescription = Localyssation.GetString(KeyUtil.GetForAsset(__instance._scriptSkill) + "_DESCRIPTION");
+                    string skillDescription = Localyssation.GetString(
+                        KeyUtil.GetForAsset(__instance._scriptSkill) + "_DESCRIPTION",
+                        __instance._scriptSkill._skillDescription);
                     ScriptableCondition scriptableCondition = null;
                     ConditionSlot skillObjectCondition = __instance._scriptSkill._skillRankParams._skillObjectCondition;
                     int bonusPower = __instance._scriptSkill._skillRankParams._skillObjectCondition._conditionPower;
@@ -299,14 +313,16 @@ namespace Localyssation.Patches.ReplaceText
                     {
                         skillDescription += string.Format(
                             Localyssation.GetString(I18nKeys.SkillMenu.TOOLTIP_REQUIEMENT_FORMAT),
-                            Localyssation.GetString(KeyUtil.GetForAsset(__instance._scriptSkill._toolTipRequirement))
+                            Localyssation.GetString(
+                                KeyUtil.GetForAsset(__instance._scriptSkill._toolTipRequirement),
+                                __instance._scriptSkill._toolTipRequirement.ToString().ToLower())
                         );
                     }
 
                     if ((bool)scriptableCondition && !string.IsNullOrWhiteSpace(scriptableCondition._conditionDescription))
                     {
                         string text = scriptableCondition.Generate_ConditionDescriptor(_pStats._statStruct, __instance._scriptSkill._skillDamageType, bonusPower, bonusDuration, skillObjectCondition._powerPercent, skillObjectCondition._conditionRepeatRate);
-                        string text2 = $"\n\n<color=cyan>{Localyssation.GetString(KeyUtil.GetForAsset(scriptableCondition) + "_NAME")} - ({Localyssation.GetString(KeyUtil.GetForAsset(scriptableCondition._conditionGroup) + "_NAME")})";
+                        string text2 = $"\n\n<color=cyan>{Localyssation.GetString(KeyUtil.GetForAsset(scriptableCondition) + "_NAME", scriptableCondition._conditionName)} - ({Localyssation.GetString(KeyUtil.GetForAsset(scriptableCondition._conditionGroup) + "_NAME", scriptableCondition._conditionGroup._conditionGroupTag)})";
                         text2 += (!(skillObjectCondition._chance < 1f)) ?
                             ""
                             : string.Format(Localyssation.GetString(I18nKeys.SkillMenu.TOOLTIP_DESCRIPTOR_CONDITION_CHANCE), skillObjectCondition._chance * 100f);
@@ -329,7 +345,9 @@ namespace Localyssation.Patches.ReplaceText
             ref string __result)
         {
 
-            string conditionDescription = Localyssation.GetString(KeyUtil.GetForAsset(__instance) + "_DESCRIPTION");
+            string conditionDescription = Localyssation.GetString(
+                KeyUtil.GetForAsset(__instance) + "_DESCRIPTION",
+                __instance._conditionDescription);
             int num = __instance.Get_ConditionPower(_parentStatStruct, _attribute, _setPower, _setPercent);
             __result = conditionDescription.Replace("$BASEPOWER", $"<color=yellow>{num}</color>").Replace("$APPLY_HEALTH", $"<color=yellow>{Mathf.Abs(num * __instance._applyHealth)}</color>").Replace("$STAT_MAXHEALTH", $"<color=yellow>{Mathf.Abs(__instance.StatCalculate(_parentStatStruct, _attribute, __instance._statStruct._maxHealth, _setPower, _setPercent))}</color>")
                 .Replace("$STAT_MAXMANA", $"<color=yellow>{Mathf.Abs(__instance.StatCalculate(_parentStatStruct, _attribute, __instance._statStruct._maxMana, _setPower, _setPercent))}</color>")
@@ -379,8 +397,10 @@ namespace Localyssation.Patches.ReplaceText
             {
                 __instance._skillConditionsListing.text += "\n";
                 string text = string.Format("<color=cyan>{0} - ({1})</color>\n",
-                    Localyssation.GetString(KeyUtil.GetForAsset(selfCondition) + "_NAME"),
-                    Localyssation.GetString(KeyUtil.GetForAsset(selfCondition._conditionGroup) + "_NAME")
+                    Localyssation.GetString(KeyUtil.GetForAsset(selfCondition) + "_NAME", selfCondition._conditionName),
+                    Localyssation.GetString(
+                        KeyUtil.GetForAsset(selfCondition._conditionGroup) + "_NAME",
+                        selfCondition._conditionGroup._conditionGroupTag)
                     );
                 text += selfCondition.Generate_ConditionDescriptor(
                     Player._mainPlayer._pStats._statStruct,

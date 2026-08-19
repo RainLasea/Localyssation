@@ -39,6 +39,18 @@ namespace Localyssation
 
             public static readonly TranslationKey ENTER_A_ROOM_HINT
                 = Create(nameof(ENTER_A_ROOM_HINT), "Enter a room to send messages to a room channel.");
+
+            public static readonly TranslationKey INPUT_PLACEHOLDER
+                = Create(nameof(INPUT_PLACEHOLDER), "Enter text... (/g, /p, /z)");
+            public static readonly TranslationKey GLOBAL_INPUT_PLACEHOLDER
+                = Create(nameof(GLOBAL_INPUT_PLACEHOLDER), "#Global Chat... (>/g, /p, /z)");
+            public static readonly TranslationKey PARTY_INPUT_PLACEHOLDER
+                = Create(nameof(PARTY_INPUT_PLACEHOLDER), "#Party Chat... (/g, >/p, /z)");
+            public static readonly TranslationKey ZONE_INPUT_PLACEHOLDER
+                = Create(nameof(ZONE_INPUT_PLACEHOLDER), "#Zone Chat... (/g, /p, >/z)");
+
+            public static readonly TranslationKey WELCOME_MESSAGE_FORMAT
+                = Create(nameof(WELCOME_MESSAGE_FORMAT), "<color=#a7fc00>Welcome to ATLYSS (version: {0})</color>");
         }
     }
 }

@@ -227,9 +227,10 @@ namespace Localyssation.Patches.ReplaceText
             if (LanguageManager.CurrentLanguage.ContainsKey($"{creepKey}_VARIANT_QUEST_KILLED"))
                 creepKey = $"{creepKey}_VARIANT_QUEST_KILLED";
 
+            var defaultCreepName = requirement > 1 ? creep._creepName + "s" : creep._creepName;
             return string.Format(
                 Localyssation.GetString(formatKey, fontSize: fontSize),
-                Localyssation.GetString(creepKey, fontSize: fontSize));
+                Localyssation.GetString(creepKey, defaultCreepName, fontSize));
         }
 
         internal static string GetQuestTriggerRequirementKey(QuestTriggerRequirement requirement)
@@ -364,8 +365,10 @@ namespace Localyssation.Patches.ReplaceText
                         Localyssation.GetString(
                             //"FORMAT_QUEST_PROGRESS",
                             I18nKeys.Quest.FORMAT_PROGRESS,
-                            Localyssation.GetString($"{KeyUtil.GetForAsset(questItemRequirement._questItem)}_NAME")),
-                        Localyssation.GetString(KeyUtil.GetForAsset(questItemRequirement._questItem) + "_NAME"),
+                            questItemRequirement._questItem._itemName),
+                        Localyssation.GetString(
+                            KeyUtil.GetForAsset(questItemRequirement._questItem) + "_NAME",
+                            questItemRequirement._questItem._itemName),
                         acquiredItemsArray[questItemRequirementIndex],
                         questItemRequirement._itemsNeeded);
                 }));
@@ -504,7 +507,9 @@ namespace Localyssation.Patches.ReplaceText
                             I18nKeys.Quest.FORMAT_PROGRESS,
                             RTReplacer.GetCreepKillRequirementText(questCreepRequirement._questCreep, questCreepRequirement._creepsKilled)
                         ),
-                        Localyssation.GetString(KeyUtil.GetForAsset(questCreepRequirement._questCreep) + "_NAME"),
+                        Localyssation.GetString(
+                            KeyUtil.GetForAsset(questCreepRequirement._questCreep) + "_NAME",
+                            questCreepRequirement._questCreep._creepName),
                         Math.Min(
                             creepKillProgressValues[questCreepRequirementIndex] + 1,
                             questCreepRequirement._creepsKilled
@@ -604,7 +609,8 @@ namespace Localyssation.Patches.ReplaceText
                     Transpilers.EmitDelegate<Func<ScriptableQuest, string>>( quest =>
                         I18nKeys.Quest.RETRIEVED_QUEST_OBJECTIVE_ITEM_FORMAT
                             .Format(
-                                KeyUtil.GetForAsset(quest._questObjectiveItem._scriptItem).Localize()
+                                KeyUtil.GetForAsset(quest._questObjectiveItem._scriptItem).Name.Localize(
+                                    quest._questObjectiveItem._scriptItem._itemName)
                                 )
                     )
                     });
@@ -617,7 +623,7 @@ namespace Localyssation.Patches.ReplaceText
                     Transpilers.EmitDelegate<Func<ScriptableQuest, string>>( quest =>
                         I18nKeys.Quest.RETRIEVED_QUEST_OBJECTIVE_ITEM_FORMAT
                         .Format(
-                            KeyUtil.GetForAsset(quest).Name.Localize()
+                            KeyUtil.GetForAsset(quest).Name.Localize(quest._questName)
                             )
                         )
                 });
