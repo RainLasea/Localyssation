@@ -187,9 +187,9 @@ namespace Localyssation.Patches.ReplaceText
         }
 
 
-        [HarmonyPatch(typeof(QuestSelectionManager), nameof(QuestSelectionManager.Handle_QuestSelectionConditions))]
+        [HarmonyPatch(typeof(QuestSelectionManager), nameof(QuestSelectionManager.Handle_QuestSelector))]
         [HarmonyTranspiler]
-        public static IEnumerable<CodeInstruction> QuestSelectionManager_Handle_QuestSelectionConditions_Transpiler(IEnumerable<CodeInstruction> instructions)
+        public static IEnumerable<CodeInstruction> QuestSelectionManager_Handle_QuestSelector_Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             return RTUtil.SimpleStringReplaceTranspiler(instructions, new Dictionary<string, string>() {
                 { "Quest Incomplete", "QUEST_SELECTION_MANAGER_QUEST_ACCEPT_BUTTON_INCOMPLETE" },
@@ -231,6 +231,20 @@ namespace Localyssation.Patches.ReplaceText
                 Localyssation.GetString(formatKey, fontSize: fontSize),
                 Localyssation.GetString(creepKey, fontSize: fontSize));
         }
+
+        internal static string GetQuestTriggerRequirementKey(QuestTriggerRequirement requirement)
+        {
+            return $"QUEST_TRIGGER_REQUIREMENT_{KeyUtil.Normalize(requirement._prefix)}_{KeyUtil.Normalize(requirement._suffix)}";
+        }
+
+        internal static string GetQuestTriggerRequirementText(QuestTriggerRequirement requirement, int fontSize = -1)
+        {
+            return Localyssation.GetString(
+                GetQuestTriggerRequirementKey(requirement),
+                $"{requirement._prefix} {requirement._suffix}",
+                fontSize);
+        }
+
         [HarmonyPatch(typeof(QuestTrackElement), nameof(QuestTrackElement.Update_QuestTrackElement))]
         [HarmonyPostfix]
         public static void QuestTrackElement_Handle_QuestTrackInfo(QuestTrackElement __instance)
@@ -271,7 +285,7 @@ namespace Localyssation.Patches.ReplaceText
                 for (var i = 0; i < __instance._scriptQuest._questObjective._questTriggerRequirements.Length; i++)
                 {
                     var questTriggerRequirement = __instance._scriptQuest._questObjective._questTriggerRequirements[i];
-                    ReplaceTrackElementText($"{Localyssation.GetString("QUEST_TRIGGER_REQUIREMENT_PREFIX_" + KeyUtil.Normalize(questTriggerRequirement._prefix), questTriggerRequirement._prefix, fontSize)} {Localyssation.GetString("QUEST_TRIGGER_REQUIREMENT_SUFFIX_" + KeyUtil.Normalize(questTriggerRequirement._suffix), questTriggerRequirement._suffix, fontSize)}", questProgressData._triggerProgressValues[i], questTriggerRequirement._triggerEmitsNeeded);
+                    ReplaceTrackElementText(GetQuestTriggerRequirementText(questTriggerRequirement, fontSize), questProgressData._triggerProgressValues[i], questTriggerRequirement._triggerEmitsNeeded);
                 }
 
                 __instance._trackElementText.text = string.Join("\n", trackElementText);
@@ -283,7 +297,9 @@ namespace Localyssation.Patches.ReplaceText
         public static IEnumerable<CodeInstruction> QuestSelectionManager__OnClick_QuestAcceptButton__Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             return RTUtil.Wrap(instructions)
-                .ReplaceStrings(new[] { I18nKeys.ErrorMessages.QUEST_LOG_FULL })
+                .ReplaceStrings(new Dictionary<string, string>() {
+                    { "Quest Log Full", I18nKeys.ErrorMessages.QUEST_LOG_FULL }
+                })
                 .Unwrap();
         }
 
@@ -305,11 +321,14 @@ namespace Localyssation.Patches.ReplaceText
         [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
+            var formatMethod = AccessTools.Method(typeof(PlayerQuesting), nameof(PlayerQuesting.Apply_QuestProgressNote), new[] { typeof(string), typeof(int) });
+            if (formatMethod == null) throw new InvalidOperationException();
+
             var matcher = new CodeMatcher(instructions)
                 .MatchForward(true,
                     new CodeMatch(OpCodes.Newarr),
                     new CodeMatch(x => x.IsStloc()));
-
+            if (matcher.IsInvalid) throw new InvalidOperationException();
             var acquiredItemsArray_pos = RTUtil.GetIntOperand(matcher);
 
             matcher.MatchForward(true,
@@ -318,19 +337,27 @@ namespace Localyssation.Patches.ReplaceText
                 new CodeMatch(),
                 new CodeMatch(),
                 new CodeMatch(x => x.IsStloc()));
-
+            if (matcher.IsInvalid) throw new InvalidOperationException();
             var questItemRequirement_pos = RTUtil.GetIntOperand(matcher);
 
-            matcher.MatchForward(true,
-                new CodeMatch(OpCodes.Call, AccessTools.Method(typeof(PlayerQuesting), nameof(PlayerQuesting.Apply_QuestProgressNote))));
+            matcher.MatchForward(true, new CodeMatch(OpCodes.Ldstr, "{0}: ({1} / {2})"));
+            if (matcher.IsInvalid) throw new InvalidOperationException();
+            int startPos = matcher.Pos;
+            if (startPos > 0 && matcher.InstructionAt(-1).opcode == OpCodes.Ldarg_0) startPos--;
+
+            matcher.MatchForward(true, new CodeMatch(OpCodes.Call, formatMethod));
+            if (matcher.IsInvalid) throw new InvalidOperationException();
+            int endPos = matcher.Pos;
+            int count = endPos - startPos + 1;
+
+            matcher.Advance(startPos - matcher.Pos);
+            matcher.RemoveInstructions(count);
 
             matcher.InsertAndAdvance(
-                new CodeInstruction(OpCodes.Ldarg_0),
                 new CodeInstruction(OpCodes.Ldarg_1),
-                new CodeInstruction(OpCodes.Ldarg_2),
                 new CodeInstruction(OpCodes.Ldloc, questItemRequirement_pos),
                 new CodeInstruction(OpCodes.Ldloc, acquiredItemsArray_pos),
-                Transpilers.EmitDelegate<Func<string, PlayerQuesting, ScriptableQuest, int, QuestItemRequirement, int[], string>>((oldString, __instance, quest, questIndex, questItemRequirement, acquiredItemsArray) =>
+                Transpilers.EmitDelegate<Func<ScriptableQuest, QuestItemRequirement, int[], string>>((quest, questItemRequirement, acquiredItemsArray) =>
                 {
                     var questItemRequirementIndex = Array.IndexOf(quest._questObjective._questItemRequirements, questItemRequirement);
                     return string.Format(
@@ -342,6 +369,10 @@ namespace Localyssation.Patches.ReplaceText
                         acquiredItemsArray[questItemRequirementIndex],
                         questItemRequirement._itemsNeeded);
                 }));
+            matcher.InsertAndAdvance(
+                new CodeInstruction(OpCodes.Ldarg_0),
+                new CodeInstruction(OpCodes.Ldarg_2),
+                new CodeInstruction(OpCodes.Call, formatMethod));
 
             return matcher.InstructionEnumeration();
         }
@@ -362,6 +393,9 @@ namespace Localyssation.Patches.ReplaceText
         [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
+            var formatMethod = AccessTools.Method(typeof(PlayerQuesting), nameof(PlayerQuesting.Apply_QuestProgressNote), new[] { typeof(string), typeof(int) });
+            if (formatMethod == null) throw new InvalidOperationException();
+
             var matcher = new CodeMatcher(instructions)
                 .MatchForward(true,
                     new CodeMatch(OpCodes.Ldfld, AccessTools.Field(typeof(ScriptableQuest), nameof(ScriptableQuest._questObjective))),
@@ -369,28 +403,47 @@ namespace Localyssation.Patches.ReplaceText
                     new CodeMatch(),
                     new CodeMatch(),
                     new CodeMatch(x => x.IsStloc()));
-
+            if (matcher.IsInvalid) throw new InvalidOperationException();
             var questTriggerRequirement_pos = RTUtil.GetIntOperand(matcher);
 
             matcher.MatchForward(true,
-                new CodeMatch(OpCodes.Call, AccessTools.Method(typeof(PlayerQuesting), nameof(PlayerQuesting.Apply_QuestProgressNote))));
+                new CodeMatch(OpCodes.Ldfld, AccessTools.Field(typeof(QuestProgressStruct), nameof(QuestProgressStruct._triggerProgressValues))),
+                new CodeMatch(x => x.IsStloc()));
+            if (matcher.IsInvalid) throw new InvalidOperationException();
+            var triggerProgressValues_pos = RTUtil.GetIntOperand(matcher);
+
+            matcher.MatchForward(true, new CodeMatch(OpCodes.Ldstr, "{0} {1}: ({2} / {3})"));
+            if (matcher.IsInvalid) throw new InvalidOperationException();
+            int startPos = matcher.Pos;
+            if (startPos > 0 && matcher.InstructionAt(-1).opcode == OpCodes.Ldarg_0) startPos--;
+
+            matcher.MatchForward(true, new CodeMatch(OpCodes.Call, formatMethod));
+            if (matcher.IsInvalid) throw new InvalidOperationException();
+            int endPos = matcher.Pos;
+            int count = endPos - startPos + 1;
+
+            matcher.Advance(startPos - matcher.Pos);
+            matcher.RemoveInstructions(count);
 
             matcher.InsertAndAdvance(
-                new CodeInstruction(OpCodes.Ldarg_0),
                 new CodeInstruction(OpCodes.Ldarg_1),
-                new CodeInstruction(OpCodes.Ldarg_2),
                 new CodeInstruction(OpCodes.Ldloc, questTriggerRequirement_pos),
-                Transpilers.EmitDelegate<Func<string, PlayerQuesting, ScriptableQuest, int, QuestTriggerRequirement, string>>((oldString, __instance, quest, questIndex, questTriggerRequirement) =>
+                new CodeInstruction(OpCodes.Ldloc, triggerProgressValues_pos),
+                Transpilers.EmitDelegate<Func<ScriptableQuest, QuestTriggerRequirement, int[], string>>((quest, questTriggerRequirement, triggerProgressValues) =>
                 {
                     var questTriggerRequirementIndex = Array.IndexOf(quest._questObjective._questTriggerRequirements, questTriggerRequirement);
                     return string.Format(
                         Localyssation.GetString(
                             I18nKeys.Quest.FORMAT_PROGRESS,
                             $"{questTriggerRequirement._prefix} {questTriggerRequirement._suffix}"),
-                        $"{questTriggerRequirement._prefix} {questTriggerRequirement._suffix}",
-                        __instance._questProgressData[questIndex]._triggerProgressValues[questTriggerRequirementIndex],
+                        RTReplacer.GetQuestTriggerRequirementText(questTriggerRequirement),
+                        triggerProgressValues[questTriggerRequirementIndex],
                         questTriggerRequirement._triggerEmitsNeeded);
                 }));
+            matcher.InsertAndAdvance(
+                new CodeInstruction(OpCodes.Ldarg_0),
+                new CodeInstruction(OpCodes.Ldarg_2),
+                new CodeInstruction(OpCodes.Call, formatMethod));
 
             return matcher.InstructionEnumeration();
         }
@@ -411,6 +464,9 @@ namespace Localyssation.Patches.ReplaceText
         [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
+            var formatMethod = AccessTools.Method(typeof(PlayerQuesting), nameof(PlayerQuesting.Apply_QuestProgressNote), new[] { typeof(string), typeof(int) });
+            if (formatMethod == null) throw new InvalidOperationException();
+
             var matcher = new CodeMatcher(instructions)
                 .MatchForward(true,
                     new CodeMatch(OpCodes.Ldfld, AccessTools.Field(typeof(ScriptableQuest), nameof(ScriptableQuest._questObjective))),
@@ -418,20 +474,30 @@ namespace Localyssation.Patches.ReplaceText
                     new CodeMatch(),
                     new CodeMatch(),
                     new CodeMatch(x => x.IsStloc()));
-
+            if (matcher.IsInvalid) throw new InvalidOperationException();
             var questCreepRequirement_pos = RTUtil.GetIntOperand(matcher);
 
-            matcher.MatchForward(true,
-                new CodeMatch(OpCodes.Call, AccessTools.Method(typeof(PlayerQuesting), nameof(PlayerQuesting.Apply_QuestProgressNote))));
+            matcher.MatchForward(true, new CodeMatch(OpCodes.Ldstr, "{0} slain: ({1} / {2})"));
+            if (matcher.IsInvalid) throw new InvalidOperationException();
+            int startPos = matcher.Pos;
+            if (startPos > 0 && matcher.InstructionAt(-1).opcode == OpCodes.Ldarg_0) startPos--;
+
+            matcher.MatchForward(true, new CodeMatch(OpCodes.Call, formatMethod));
+            if (matcher.IsInvalid) throw new InvalidOperationException();
+            int endPos = matcher.Pos;
+            int count = endPos - startPos + 1;
+
+            matcher.Advance(startPos - matcher.Pos);
+            matcher.RemoveInstructions(count);
 
             matcher.InsertAndAdvance(
-                new CodeInstruction(OpCodes.Ldarg_0),
                 new CodeInstruction(OpCodes.Ldarg_1),
                 new CodeInstruction(OpCodes.Ldarg_2),
                 new CodeInstruction(OpCodes.Ldloc, questCreepRequirement_pos),
-                Transpilers.EmitDelegate<Func<string, PlayerQuesting, ScriptableQuest, int, QuestCreepRequirement, string>>((oldString, __instance, quest, questIndex, questCreepRequirement) =>
+                Transpilers.EmitDelegate<Func<ScriptableQuest, int, QuestCreepRequirement, string>>((quest, questIndex, questCreepRequirement) =>
                 {
                     var questCreepRequirementIndex = Array.IndexOf(quest._questObjective._questCreepRequirements, questCreepRequirement);
+                    int[] creepKillProgressValues = Player._mainPlayer._pQuest._questProgressData[questIndex]._creepKillProgressValues;
                     return string.Format(
                         Localyssation.GetString(
                             //"FORMAT_QUEST_PROGRESS",
@@ -440,23 +506,27 @@ namespace Localyssation.Patches.ReplaceText
                         ),
                         Localyssation.GetString(KeyUtil.GetForAsset(questCreepRequirement._questCreep) + "_NAME"),
                         Math.Min(
-                            __instance._questProgressData[questIndex]._creepKillProgressValues[questCreepRequirementIndex] + 1,
+                            creepKillProgressValues[questCreepRequirementIndex] + 1,
                             questCreepRequirement._creepsKilled
                         ),
                         questCreepRequirement._creepsKilled);
                 }));
+            matcher.InsertAndAdvance(
+                new CodeInstruction(OpCodes.Ldarg_0),
+                new CodeInstruction(OpCodes.Ldarg_2),
+                new CodeInstruction(OpCodes.Call, formatMethod));
 
             return matcher.InstructionEnumeration();
         }
     }
 
     [HarmonyPatch]
-    class QuestSelectionManager__Update
+    class QuestSelectionManager__Handle_QuestSelector
     {
         private static readonly TargetInnerMethod __TARGET = new TargetInnerMethod()
         {
             Type = typeof(QuestSelectionManager),
-            ParentMethodName = nameof(QuestSelectionManager.Update),
+            ParentMethodName = nameof(QuestSelectionManager.Handle_QuestSelector),
             InnerMethodName = "Handle_Expbar"
         };
 

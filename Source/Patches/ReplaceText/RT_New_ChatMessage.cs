@@ -46,9 +46,9 @@ namespace Localyssation.Patches.ReplaceText
                 .Unwrap();
         }
 
-        [HarmonyPatch(typeof(ChatBehaviour), nameof(ChatBehaviour.OnClick_RoomChannel))]
+        [HarmonyPatch(typeof(ChatBehaviour), nameof(ChatBehaviour.OnClick_ZoneChannel))]
         [HarmonyTranspiler]
-        private static IEnumerable<CodeInstruction> ChatBehaviour__OnClick_RoomChannel__Transpiler(IEnumerable<CodeInstruction> instructions)
+        private static IEnumerable<CodeInstruction> ChatBehaviour__OnClick_ZoneChannel__Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             return RTUtil.Wrap(instructions)
                 .ReplaceStrings(new[] {
@@ -56,23 +56,6 @@ namespace Localyssation.Patches.ReplaceText
                     I18nKeys.ChatBehaviour.ENABLE_ROOM_CHANNEL_MESSAGE
                 })
                 .Unwrap();
-        }
-
-        [HarmonyPatch(typeof(ChatBehaviour), nameof(ChatBehaviour.On_ChannelSwitch))]
-        [HarmonyTranspiler]
-        private static IEnumerable<CodeInstruction> ChatBehaviour__On_ChannelSwitch__Transpiler(IEnumerable<CodeInstruction> instructions)
-        {
-            var matcher = new CodeMatcher(instructions);
-            TranspilerHelper.RemoveMethodCallParamsStackForward(matcher, MessageCallbacks.New_ChatMessage, 7, OpCodes.Call);
-            matcher.InsertAndAdvance(new CodeInstruction[] {
-                new CodeInstruction(OpCodes.Ldarg_0),
-                new CodeInstruction(OpCodes.Ldarg_2),
-                Transpilers.EmitDelegate<Func<ChatBehaviour, string, string>>((cb, _new) =>
-                {
-                    return I18nKeys.ChatBehaviour.CHANNEL_SWTICH_MESSAGE_FORMAT.Format(cb._player._nickname, _new);
-                })
-            });
-            return matcher.InstructionEnumeration();
         }
 
         /// Might conflict with command libs
@@ -84,8 +67,7 @@ namespace Localyssation.Patches.ReplaceText
                 .ReplaceStrings(new[] {
                     I18nKeys.ChatBehaviour.GLOBAL_CHANNEL_DISABLED,
                     I18nKeys.ChatBehaviour.PARTY_CHANNEL_DISABLED,
-                    I18nKeys.ChatBehaviour.ROOM_CHANNEL_DISABLED,
-                    I18nKeys.ChatBehaviour.ENTER_A_ROOM_HINT
+                    I18nKeys.ChatBehaviour.ROOM_CHANNEL_DISABLED
                 }).Unwrap();
         }
 
